@@ -1,7 +1,7 @@
-needsPackage "Nauty"
--- needs "nautyToGraphs.m2"
-needsPackage "Matroids";
--- needs "goodMatroidInput.m2"
+needsPackage ("Nauty", DebuggingMode => false),
+needsPackage ("Matroids", DebuggingMode => false),
+-- needs "nautyToGraphs.m2",
+-- needs "goodMatroidInput.m2",
 
 -- some background routines
 nautyToGraph = method (TypicalValue => Graph)
@@ -49,7 +49,7 @@ metricSpace (List, Function) := (E, m) -> (
 	n := #E;
 	h := hashTable flatten apply (n, i -> apply (n, j -> (j,i) => m (i,j)));
 	new MetricSpace from  {
-		symbol GroundSet => E,
+		symbol GroundSet => sort E,
 		symbol metric => h,
 		symbol cache => new CacheTable
 		}
@@ -59,7 +59,7 @@ metricSpace Graphs$Graph := G -> (
 	--if not isConnected G then return error "Expected a connected graph" else
 	D := distanceMatrix G;
 	d := (i,j) -> D_(i,j);
-	metricSpace (vertexSet G, d)
+	metricSpace (sort vertexSet G, d)
 	)
 
 --metricSpace Digraph := G -> (
@@ -81,12 +81,30 @@ metricGeneratingSets MetricSpace := M -> (
 	M#cache#GeneratingSets = G;
 	G)
 
+inclusionMinimalGeneratingSets = method (TypicalValue => Boolean)
+inclusionMinimalGeneratingSets MetricSpace := M -> (
+	if M#cache#?inclusionMinimalGens then return M#cache#inclusionMinimalGens else
+	G := metricGeneratingSets M;
+	IMG := select (G, g -> not any (G, h -> g != h and isSubset (h,g)));
+	M#cache#inclusionMinimalGens = IMG;
+	IMG
+	)
+
 metricDimension = method (TypicalValue => ZZ)
 metricDimension MetricSpace := M -> (
 	if M#cache#?Dimension then return M#cache#Dimension else
 	r := min apply (metricGeneratingSets M, g -> #g);
 	M#cache#Dimension = r;
 	r)
+
+weakMetricDimension = method (TypicalValue => ZZ)
+weakMetricDimension MetricSpace := M -> (
+	G := metricGeneratingSets M;
+	inclusionMinimalGens := select (G, g -> not any (G, h -> g != h and isSubset (h,g)));
+	heights := unique apply (inclusionMinimalGens, g -> #g);
+	n := # heights;
+	if n === 1 then heights#0 else -1
+	)
 
 metricBases = method (TypicalValue => Boolean)
 metricBases MetricSpace := M -> (
@@ -101,6 +119,12 @@ isMatroidal = method (TypicalValue => Boolean)
 isMatroidal MetricSpace := M -> (
 	isValid  matroid goodMatroidInput (metricBases M)
 	)
+
+isWeaklyMatroidal = method (TypicalValue => Boolean)
+isWeaklyMatroidal MetricSpace := M -> (
+	IMG := inclusionMinimalGeneratingSets M;
+	weakMetricDimension M != -1 and isValid matroid goodMatroidInput IMG)
+
 -- this needs the Poset package but is no longer useful
 --complementPoset = method (TypicalValue => Poset)
 --complementPoset MetricSpace := M -> (
