@@ -147,3 +147,4 @@ metricBases M
 restart
 load "metricSpaces.m2"
 select (allGraphsOnN 5, g -> not isMatroidal metricSpace g)
+Delete all this when ready
